@@ -8,7 +8,7 @@ app.use(bodyParser.json());
 
 // Replace with your Braintree credentials and done
 const gateway = new braintree.BraintreeGateway({
-    environment: braintree.Environment.Sandbox, // Use Sandbox for testing, switch to Production for live
+    environment: braintree.Environment.Production, // Use Sandbox for testing, switch to Production for live
     merchantId: '4zpxkccbmgvntj5q',
     publicKey: 'qsrs84q46pqkhv2f',
     privateKey: 'c608fe111ba533b9228fcceb4e95a909'
