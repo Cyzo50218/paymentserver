@@ -3,7 +3,6 @@ const bodyParser = require('body-parser');
 const braintree = require('braintree');
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 
@@ -16,7 +15,7 @@ const gateway = new braintree.BraintreeGateway({
 });
 
 // Generate client token for client-side initialization
-app.get('/client_token', (req, res) => {
+app.get('/api/client_token', (req, res) => {
     gateway.clientToken.generate({}, (err, response) => {
         if (err) {
             res.status(500).send(err);
@@ -27,7 +26,7 @@ app.get('/client_token', (req, res) => {
 });
 
 // Handle payment transaction
-app.post('/checkout', (req, res) => {
+app.post('/api/checkout', (req, res) => {
     const nonceFromTheClient = req.body.paymentMethodNonce;
     const amountToCharge = req.body.amount;
 
@@ -51,7 +50,5 @@ app.post('/checkout', (req, res) => {
     });
 });
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+// Export the app as a Vercel serverless function
+module.exports = app;
