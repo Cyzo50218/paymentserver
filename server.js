@@ -9,9 +9,9 @@ app.use(bodyParser.json());
 // Replace with your Braintree credentials
 const gateway = new braintree.BraintreeGateway({
     environment: braintree.Environment.Sandbox, // Use Sandbox for testing, switch to Production for live
-    merchantId: 'v4q2sm376ybpgmgm',
-    publicKey: 'kc4wty754yjfpfzz',
-    privateKey: '2e7d4a7438b1736132ade5371e868117'
+    merchantId: '4zpxkccbmgvntj5q',
+    publicKey: 'qsrs84q46pqkhv2f',
+    privateKey: 'c608fe111ba533b9228fcceb4e95a909'
 });
 
 // Generate client token for client-side initialization
