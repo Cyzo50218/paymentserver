@@ -6,7 +6,7 @@ const app = express();
 
 app.use(bodyParser.json());
 
-// Replace with your Braintree credentials
+// Replace with your Braintree credentials and done
 const gateway = new braintree.BraintreeGateway({
     environment: braintree.Environment.Sandbox, // Use Sandbox for testing, switch to Production for live
     merchantId: '4zpxkccbmgvntj5q',
