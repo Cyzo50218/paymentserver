@@ -1,54 +1,120 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const braintree = require('braintree');
+import express from "express";
+import fetch from "node-fetch";
+import "dotenv/config";
+import path from "path";
 
+const { PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PORT = 8888 } = process.env;
+const base = "https://api-m.sandbox.paypal.com";
 const app = express();
 
-app.use(bodyParser.json());
+// host static files
+app.use(express.static("client"));
 
-// Replace with your Braintree credentials and done
-const gateway = new braintree.BraintreeGateway({
-    environment: braintree.Environment.Sandbox, // Use Sandbox for testing, switch to Production for live
-    merchantId: '4zpxkccbmgvntj5q',
-    publicKey: 'qsrs84q46pqkhv2f',
-    privateKey: 'c608fe111ba533b9228fcceb4e95a909'
-});
+// parse post params sent in body in json format
+app.use(express.json());
 
-// Generate client token for client-side initialization
-app.get('/api/client_token', (req, res) => {
-    gateway.clientToken.generate({}, (err, response) => {
-        if (err) {
-            res.status(500).send(err);
-        } else {
-            res.send(response.clientToken);
-        }
+/**
+ * Generate an OAuth 2.0 access token for authenticating with PayPal REST APIs.
+ * @see https://developer.paypal.com/api/rest/authentication/
+ */
+const generateAccessToken = async () => {
+  try {
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
+      throw new Error("MISSING_API_CREDENTIALS");
+    }
+    const auth = Buffer.from(
+      PAYPAL_CLIENT_ID + ":" + PAYPAL_CLIENT_SECRET
+    ).toString("base64");
+    const response = await fetch(`${base}/v1/oauth2/token`, {
+      method: "POST",
+      body: "grant_type=client_credentials",
+      headers: {
+        Authorization: `Basic ${auth}`,
+      },
     });
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error("Failed to generate Access Token:", error);
+  }
+};
+
+async function handleResponse(response) {
+  try {
+    const jsonResponse = await response.json();
+    return {
+      jsonResponse,
+      httpStatusCode: response.status,
+    };
+  } catch (err) {
+    const errorMessage = await response.text();
+    throw new Error(errorMessage);
+  }
+}
+
+/**
+ * Create an order to start the transaction.
+ * @see https://developer.paypal.com/docs/api/orders/v2/#orders_create
+ */
+const createOrder = async (cart) => {
+  // use the cart information passed from the front-end to calculate the purchase unit details
+  console.log(
+    "shopping cart information passed from the frontend createOrder() callback:",
+    cart
+  );
+
+  const accessToken = await generateAccessToken();
+  const url = `${base}/v2/checkout/orders`;
+
+  const payload = {
+    intent: "CAPTURE",
+    purchase_units: [
+      {
+        amount: {
+          currency_code: "USD",
+          value: "30",
+        },
+      },
+    ],
+  };
+  
+
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      // Uncomment one of these to force an error for negative testing (in sandbox mode only).
+      // Documentation: https://developer.paypal.com/tools/sandbox/negative-testing/request-headers/
+      // "PayPal-Mock-Response": '{"mock_application_codes": "MISSING_REQUIRED_PARAMETER"}'
+      // "PayPal-Mock-Response": '{"mock_application_codes": "PERMISSION_DENIED"}'
+      // "PayPal-Mock-Response": '{"mock_application_codes": "INTERNAL_SERVER_ERROR"}'
+    },
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse(response);
+};
+
+// createOrder route
+app.post("/api/orders", async (req, res) => {
+  try {
+    // use the cart information passed from the front-end to calculate the order amount detals
+    const { cart } = req.body;
+    const { jsonResponse, httpStatusCode } = await createOrder(cart);
+    res.status(httpStatusCode).json(jsonResponse);
+  } catch (error) {
+    console.error("Failed to create order:", error);
+    res.status(500).json({ error: "Failed to create order." });
+  }
 });
 
-// Handle payment transaction
-app.post('/api/checkout', (req, res) => {
-    const nonceFromTheClient = req.body.paymentMethodNonce;
-    const amountToCharge = req.body.amount;
-
-    gateway.transaction.sale({
-        amount: amountToCharge,
-        paymentMethodNonce: nonceFromTheClient,
-        options: {
-            submitForSettlement: true
-        }
-    }, (err, result) => {
-        if (err) {
-            res.status(500).send(err);
-            console.log(err);
-        } else if (result.success) {
-            res.send(result);
-            console.log(result);
-        } else {
-            res.status(400).send(result);
-            console.log(result);
-        }
-    });
+// serve index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.resolve("./checkout.html"));
 });
 
-// Export the app as a Vercel serverless function
-module.exports = app;
+app.listen(PORT, () => {
+  console.log(`Node server listening at http://localhost:${PORT}/`);
+}); 
